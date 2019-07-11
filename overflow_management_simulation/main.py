@@ -1,16 +1,19 @@
+import os
 from itertools import groupby
 import matplotlib.pyplot as plt
-
-from routers import TailDropRouter, PriorityRouter, PriorityGiveUpRouter
-from simulation import Simulation
 import csv
+import tempfile
+
+from overflow_management_simulation.routers import TailDropRouter, PriorityRouter, PriorityGiveUpRouter
+from overflow_management_simulation.simulation import Simulation
 
 NUMBER_OF_REPEATS = 10
 N = 30
 K = 5
 T = 50
 CAPACITY = 1
-CSV_OUTPUT_PATH = r'c:\a\simulation_results.csv'
+CSV_OUTPUT_PATH = os.path.join(tempfile.mkdtemp(), 'simulation_results.csv')
+PLOT_RESULTS = True
 
 
 def main():
@@ -39,7 +42,11 @@ def main():
             legend.append(router_name)
 
     plt.legend(legend)
-    plt.show()
+
+    if PLOT_RESULTS:
+        plt.show()
+
+    print(f"Result file: {CSV_OUTPUT_PATH}")
 
 
 if __name__ == '__main__':
