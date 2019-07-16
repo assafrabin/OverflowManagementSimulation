@@ -21,5 +21,5 @@ setup(
     url="https://github.com/assafrabin/OverflowManagementSimulation",
     packages=['overflow_management_simulation'],
     long_description=read('README.md'),
-    install_requires=['matplotlib']
+    install_requires=['matplotlib', 'numpy']
 )

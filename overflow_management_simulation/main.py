@@ -10,7 +10,7 @@ from overflow_management_simulation.simulation import Simulation
 NUMBER_OF_REPEATS = 10
 N = 30
 K = 5
-T = 50
+LAMBDA = 5
 CAPACITY = 1
 CSV_OUTPUT_PATH = os.path.join(tempfile.mkdtemp(), 'simulation_results.csv')
 PLOT_RESULTS = True
@@ -18,11 +18,11 @@ PLOT_RESULTS = True
 
 def main():
     all_results = []
-    for beta in [i / 50.0 for i in range(50)]:
+    for beta in [i / 10.0 for i in range(10)]:
         for router in [TailDropRouter(capacity=CAPACITY),
                        PriorityRouter(capacity=CAPACITY),
                        PriorityGiveUpRouter(capacity=CAPACITY, beta=beta)]:
-            simulation = Simulation(router=router, n=N, k=K, beta=beta, max_time=T,
+            simulation = Simulation(router=router, n=N, k=K, beta=beta, lam=LAMBDA,
                                     number_of_repeats=NUMBER_OF_REPEATS)
             res = simulation.run()
             res.print()

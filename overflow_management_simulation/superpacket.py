@@ -1,4 +1,4 @@
-import random
+from cached_property import cached_property
 
 
 class Superpacket:
@@ -7,15 +7,14 @@ class Superpacket:
         self.id_ = id_
         self.packets = [Packet(id_) for _ in range(number_of_packets)]
 
-    def set_arrival_times(self, max_time):
-        arrival_times = random.choices(range(max_time), k=len(self.packets))
-        for packet, arrival_time in zip(self.packets, arrival_times):
-            packet.arrival_time = arrival_time
-
     @property
     def is_completed(self):
         transmitted_packets = [p for p in self.packets if p.is_transmitted]
         return len(transmitted_packets) / float(len(self.packets)) >= (1 - self.beta)
+
+    @cached_property
+    def max_time(self):
+        return max(p.arrival_time for p in self.packets)
 
 
 class Packet:
