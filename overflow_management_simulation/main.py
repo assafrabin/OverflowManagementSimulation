@@ -28,7 +28,7 @@ def main():
             res.print()
             all_results.append(res)
 
-    with open(CSV_OUTPUT_PATH, 'w') as f:
+    with open(CSV_OUTPUT_PATH, 'w', newline='') as f:
         csv_writer = csv.writer(f)
         csv_writer.writerow(["router", "beta", "rate"])
         legend = []
