@@ -1,5 +1,10 @@
+from typing import List
+
+from overflow_management_simulation.superpacket import Superpacket
+
+
 class SimulationResult:
-    def __init__(self, superpackets):
+    def __init__(self, superpackets: List[Superpacket]):
         self.superpackets = superpackets
 
     @property
@@ -11,12 +16,16 @@ class SimulationResult:
         return [sp for sp in self.superpackets if sp.is_completed]
 
     @property
-    def success_rate(self):
-        return len(self.completed_superpackets) / float(len(self.superpackets))
+    def total_weight(self) -> int:
+        return sum(sp.weight for sp in self.superpackets)
 
     @property
-    def packets_per_slot(self):
-        return len(self.completed_superpackets) / float(len(self.superpackets))
+    def completed_weight(self):
+        return sum(sp.weight for sp in self.completed_superpackets)
+
+    @property
+    def success_rate(self):
+        return self.completed_weight / self.total_weight
 
 
 class SimulationResults:

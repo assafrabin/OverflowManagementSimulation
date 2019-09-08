@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 
 from overflow_management_simulation.simulation_results import SimulationResults, SimulationResult
@@ -5,20 +7,23 @@ from overflow_management_simulation.superpacket import Superpacket
 
 
 class Simulation:
-    def __init__(self, router, n, k, beta, lam, number_of_repeats):
+    def __init__(self, router, n, k, beta, lam, number_of_repeats, weighted):
         self.router = router
         self.n = n
         self.k = k
         self.beta = beta
         self.lam = lam
         self.number_of_repeats = number_of_repeats
+        self.weighted = weighted
 
     def run(self):
         return SimulationResults(router=self.router, n=self.n, k=self.k, beta=self.beta, lam=self.lam,
                                  results=[self.single_run() for _ in range(self.number_of_repeats)])
 
     def single_run(self):
-        superpackets = [Superpacket(id_=i, number_of_packets=self.k, beta=self.beta) for i in range(self.n)]
+        superpackets = [Superpacket(id_=i + 1, number_of_packets=self.k, beta=self.beta,
+                                    weight=random.randint(1, 10) if self.weighted else 1)
+                        for i in range(self.n)]
 
         for sp in superpackets:
             self.set_arrival_times(packets=sp.packets, lam=self.lam)

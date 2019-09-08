@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 import csv
 import tempfile
 
-from overflow_management_simulation.routers import TailDropRouter, PriorityRouter, PriorityGiveUpRouter
+from overflow_management_simulation.routers import TailDropRouter, PriorityRouter, PriorityGiveUpRouter, \
+    WeightedPriorityRouter, WeightedPriorityGiveUpRouter, GreedyWeightedRouter
 from overflow_management_simulation.simulation import Simulation
 
 
@@ -14,14 +15,21 @@ def main():
         conf = json.load(f)
     all_results = []
     for beta in [i / 10.0 for i in range(10)]:
-        for alpha in [round((i / 10.0) - 0.5, 1) for i in range(10)]:
-            for router in [PriorityGiveUpRouter(capacity=conf['capacity'], buffer_size=conf['buffer_size'], beta=beta,
-                                                alpha=alpha)]:
-                simulation = Simulation(router=router, n=conf['n'], k=conf['k'], beta=beta, lam=conf['lambda'],
-                                        number_of_repeats=conf['number_of_repeats'])
-                res = simulation.run()
-                res.print()
-                all_results.append(res)
+        routers = [
+            PriorityGiveUpRouter(capacity=conf['capacity'], buffer_size=conf['buffer_size'], beta=beta),
+            WeightedPriorityGiveUpRouter(capacity=conf['capacity'], buffer_size=conf['buffer_size'], n=conf['n'],
+                                         beta=beta),
+            PriorityRouter(capacity=conf['capacity'], buffer_size=conf['buffer_size']),
+            WeightedPriorityRouter(capacity=conf['capacity'], buffer_size=conf['buffer_size'], n=conf['n']),
+            TailDropRouter(capacity=conf['capacity'], buffer_size=conf['buffer_size']),
+            GreedyWeightedRouter(capacity=conf['capacity'], buffer_size=conf['buffer_size']),
+        ]
+        for router in routers:
+            simulation = Simulation(router=router, n=conf['n'], k=conf['k'], beta=beta, lam=conf['lambda'],
+                                    number_of_repeats=conf['number_of_repeats'], weighted=conf['weighted'])
+            res = simulation.run()
+            res.print()
+            all_results.append(res)
 
     CSV_OUTPUT_PATH = os.path.join(tempfile.mkdtemp(), 'simulation_results.csv')
     with open(CSV_OUTPUT_PATH, 'w', newline='') as f:

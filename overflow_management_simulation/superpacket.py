@@ -2,10 +2,11 @@ from cached_property import cached_property
 
 
 class Superpacket:
-    def __init__(self, id_, number_of_packets, beta):
+    def __init__(self, id_, number_of_packets, beta, weight):
         self.beta = beta
         self.id_ = id_
-        self.packets = [Packet(id_) for _ in range(number_of_packets)]
+        self.packets = [Packet(self) for _ in range(number_of_packets)]
+        self.weight = weight
 
     @property
     def is_completed(self):
@@ -18,7 +19,7 @@ class Superpacket:
 
 
 class Packet:
-    def __init__(self, superpacket_id):
-        self.superpacket_id = superpacket_id
+    def __init__(self, superpacket):
+        self.superpacket = superpacket
         self.arrival_time = None
         self.is_transmitted = False
