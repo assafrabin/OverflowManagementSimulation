@@ -1,19 +1,21 @@
+import pandas as pd
+
 from typing import List
+
+from cached_property import cached_property
 
 from overflow_management_simulation.superpacket import Superpacket
 
 
 class SimulationResult:
-    def __init__(self, superpackets: List[Superpacket]):
+    def __init__(self, simulation, superpackets: List[Superpacket], completed_superpackets: List[Superpacket]):
+        self.simulation = simulation
         self.superpackets = superpackets
+        self.completed_superpackets = completed_superpackets
 
     @property
     def max_time(self):
         return max(sp.max_time for sp in self.superpackets)
-
-    @property
-    def completed_superpackets(self):
-        return [sp for sp in self.superpackets if sp.is_completed]
 
     @property
     def total_weight(self) -> int:
@@ -28,9 +30,11 @@ class SimulationResult:
         return self.completed_weight / self.total_weight
 
 
-class SimulationResults:
-    def __init__(self, router, n, k, beta, lam, results):
-        self.router = router
+class SimulationsResult:
+    COLUMNS = []
+
+    def __init__(self, router_name, n, k, beta, lam, results):
+        self.router_name = router_name
         self.n = n
         self.k = k
         self.beta = beta
@@ -40,15 +44,21 @@ class SimulationResults:
     def _average(self, attr):
         return sum([getattr(result, attr) for result in self.results]) / float(len(self.results))
 
-    @property
-    def average_packets_per_slot(self):
-        return self._average('packets_per_slot')
-
-    @property
+    @cached_property
     def average_success_rate(self):
         return self._average('success_rate')
 
+    @cached_property
+    def average_burst_size(self):
+        return self._average('average_burst_size')
+
     def print(self):
-        print(f'{self.router.NAME} - {self.beta} - {self.average_success_rate:.2f}')
+        print(f'{self.router_name} - {self.beta} - {self.average_success_rate:.2f}')
 
-
+    def to_dict(self):
+        return {
+            "router": self.router_name,
+            "beta": self.beta,
+            "success_rate": self.average_success_rate,
+            "average_burst_size": self.average_burst_size
+        }

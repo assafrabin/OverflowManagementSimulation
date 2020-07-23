@@ -1,26 +1,23 @@
 import random
 from abc import ABCMeta, abstractmethod
+from dataclasses import dataclass
+from typing import ClassVar
 
 
 class Router(metaclass=ABCMeta):
-    NAME = NotImplemented
+    NAME: ClassVar[str] = NotImplemented
 
-    def __init__(self, capacity, buffer_size, **kwargs):
-        self.capacity = capacity
-        self.buffer_size = buffer_size
+    def __post_init__(self):
         self.buffer = []
 
-    def route(self, packets):
+    def route(self, packets, capacity, buffer_size):
         packets_to_route = packets + self.buffer
         if not packets_to_route:
             return []
         random.shuffle(packets)
         ordered_packets = sorted(packets, key=self.give_priority, reverse=True)
-        self.buffer = ordered_packets[self.capacity:self.capacity + self.buffer_size]
-
-        if self.NAME == WeightedPriorityGiveUpRouter.NAME and len(packets_to_route) > 1:
-            a = 1
-        return ordered_packets[:self.capacity]
+        self.buffer = ordered_packets[capacity:capacity + buffer_size]
+        return ordered_packets[:capacity]
 
     def __str__(self):
         return self.NAME
@@ -30,6 +27,7 @@ class Router(metaclass=ABCMeta):
         pass
 
 
+@dataclass
 class TailDropRouter(Router):
     NAME = "Tail Drop"
 
@@ -37,6 +35,7 @@ class TailDropRouter(Router):
         return random.random()
 
 
+@dataclass
 class PriorityRouter(Router):
     NAME = "Priority"
 
@@ -44,12 +43,10 @@ class PriorityRouter(Router):
         return packet.superpacket.id_
 
 
+@dataclass
 class WeightedPriorityRouter(Router):
     NAME = "Weighted Priority"
-
-    def __init__(self, capacity, buffer_size, n, **kwargs):
-        super().__init__(capacity, buffer_size, **kwargs)
-        self.n = n
+    n: int
 
     def give_priority(self, packet):
         h_s = packet.superpacket.id_ / float(self.n)
@@ -57,13 +54,11 @@ class WeightedPriorityRouter(Router):
         return r_s
 
 
-class PriorityGiveUpRouter(Router):
-    NAME = "Priority GiveUp"
-
-    def __init__(self, beta, alpha=0, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.beta = round(beta, 2)
-        self.alpha = round(alpha, 2)
+@dataclass
+class PrioritySelfEliminationsRouter(Router):
+    NAME = "Priority Self-Eliminations"
+    beta: float
+    alpha: float = 0
 
     def give_priority(self, packet):
         return -1 if random.random() > (1 - self.beta - self.alpha) else packet.superpacket.id_
@@ -72,14 +67,59 @@ class PriorityGiveUpRouter(Router):
         return f'{self.NAME} (alpha={self.alpha})'
 
 
-class WeightedPriorityGiveUpRouter(Router):
-    NAME = "Weighted Priority GiveUp"
+@dataclass
+class PrioritySelfEliminationsGenCapRouter(Router):
+    NAME = "Priority Self-Eliminations Gen-Cap"
+    beta: float
+    alpha: float = 0
 
-    def __init__(self, n, beta, alpha=0, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.n = n
-        self.beta = round(beta, 2)
-        self.alpha = round(alpha, 2)
+    def route(self, packets, capacity, buffer_size):
+        packets_to_route = packets + self.buffer
+        if not packets_to_route:
+            return []
+        ordered_packets = sorted(packets_to_route, key=self.give_priority, reverse=True)
+        self.buffer = ordered_packets[capacity:capacity + buffer_size]
+        return ordered_packets[:capacity]
+
+
+    def give_priority(self, packet):
+        return -1 if random.random() > (1 - self.beta - self.alpha) else packet.superpacket.id_
+
+    def __str__(self):
+        return f'{self.NAME} (alpha={self.alpha})'
+
+
+@dataclass
+class PrioritySelfEliminationsInAdvanceRouter(Router):
+    NAME = "Priority Self-Eliminations in Advance"
+    n: int
+    k: int
+    beta: float
+    alpha: float = 0
+
+    def __post_init__(self):
+        super(PrioritySelfEliminationsInAdvanceRouter, self).__post_init__()
+        self.superpacket_to_self_eliminations = {i: self.choose_indices(self.k, self.beta * self.k) for i in
+                                                 range(self.n)}
+
+    def give_priority(self, packet):
+        return -1 if packet.index in self.superpacket_to_self_eliminations[
+            packet.superpacket.id_] else packet.superpacket.id_
+
+    def __str__(self):
+        return f'{self.NAME} (alpha={self.alpha})'
+
+    @staticmethod
+    def choose_indices(a, b):
+        return random.sample(list(range(a)), k=int(b))
+
+
+@dataclass
+class WeightedPrioritySelfEliminationsRouter(Router):
+    NAME = "Weighted Priority Self-Eliminations"
+    n: int
+    beta: float
+    alpha: float = 0
 
     def give_priority(self, packet):
         h_s = packet.superpacket.id_ / float(self.n)
@@ -87,6 +127,7 @@ class WeightedPriorityGiveUpRouter(Router):
         return -1 if random.random() > (1 - self.beta - self.alpha) else r_s
 
 
+@dataclass
 class GreedyWeightedRouter(Router):
     NAME = "Greedy Weighted"
 

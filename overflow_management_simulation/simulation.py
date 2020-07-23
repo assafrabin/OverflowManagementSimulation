@@ -1,46 +1,91 @@
-import random
+from collections import defaultdict
+from dataclasses import dataclass
+from itertools import combinations, chain, product
+from typing import Dict, List
 
-import numpy as np
+from cached_property import cached_property
 
-from overflow_management_simulation.simulation_results import SimulationResults, SimulationResult
-from overflow_management_simulation.superpacket import Superpacket
+from overflow_management_simulation.routers import Router
+from overflow_management_simulation.simulation_results import SimulationResult
+from overflow_management_simulation.superpacket import Superpacket, Packet
+
+
+@dataclass
+class Burst:
+    time: int
+    packets: List[Packet]
+
+    def to_dict(self):
+        return {
+            "time": self.time,
+            "size": len(self.packets)
+        }
 
 
 class Simulation:
-    def __init__(self, router, n, k, beta, lam, number_of_repeats, weighted):
-        self.router = router
-        self.n = n
+    def __init__(self, superpackets, beta, k, weighted, capacity, buffer_size):
+        self.superpackets = superpackets
         self.k = k
         self.beta = beta
-        self.lam = lam
-        self.number_of_repeats = number_of_repeats
         self.weighted = weighted
+        self.capacity = capacity
+        self.buffer_size = buffer_size
 
-    def run(self):
-        return SimulationResults(router=self.router, n=self.n, k=self.k, beta=self.beta, lam=self.lam,
-                                 results=[self.single_run() for _ in range(self.number_of_repeats)])
+    @cached_property
+    def T(self):
+        return max(sp.max_time for sp in self.superpackets)
 
-    def single_run(self):
-        superpackets = [Superpacket(id_=i + 1, number_of_packets=self.k, beta=self.beta,
-                                    weight=random.randint(1, 10) if self.weighted else 1)
-                        for i in range(self.n)]
+    @cached_property
+    def completed_threshold(self):
+        return (1 - self.beta) * self.k
 
-        for sp in superpackets:
-            self.set_arrival_times(packets=sp.packets, lam=self.lam)
+    def is_superpacket_completed(self, packets: List[Packet]):
+        return len(packets) >= self.completed_threshold
 
-        max_time = max(sp.max_time for sp in superpackets)
+    @cached_property
+    def bursts(self) -> List[Burst]:
+        res = []
+        for t in range(self.T):
+            participating_packets = [p for sp in self.superpackets for p in sp.packets if p.arrival_time == t]
+            if participating_packets:
+                res.append(Burst(time=t, packets=participating_packets))
+        return res
 
-        for t in range(max_time):
-            participating_packets = [p for sp in superpackets for p in sp.packets if p.arrival_time == t]
-            transmitted_packets = self.router.route(participating_packets)
-            for p in transmitted_packets:
-                p.is_transmitted = True
+    @cached_property
+    def average_burst_size(self):
+        return sum(len(burst.packets) for burst in self.bursts) / float(len(self.bursts))
 
-        return SimulationResult(superpackets)
+    def run(self, router: Router):
+        transmitted_packets: List[Packet] = [packet
+                                             for burst in self.bursts
+                                             for packet in router.route(burst.packets, self.capacity, self.buffer_size)]
 
-    @staticmethod
-    def set_arrival_times(packets, lam):
-        arrival_intervals = np.random.poisson(lam, size=len(packets))
-        arrival_times = [sum(arrival_intervals[0:i]) for i in range(len(packets))]
-        for packet, arrival_time in zip(packets, arrival_times):
-            packet.arrival_time = arrival_time
+        return self.evaluate_assignment(transmitted_packets)
+
+    def evaluate_assignment(self, transmitted_packets: List[Packet]) -> SimulationResult:
+        superpacket_to_transmitted_packets: Dict[Superpacket, List[Packet]] = defaultdict(list)
+        for packet in transmitted_packets:
+            superpacket_to_transmitted_packets[packet.superpacket].append(packet)
+
+        completed_superpackets = [sp for sp, packets in superpacket_to_transmitted_packets.items()
+                                  if self.is_superpacket_completed(packets)]
+        return SimulationResult(self, self.superpackets, completed_superpackets)
+
+    def find_opt(self):
+        if self.buffer_size > 0:
+            raise ValueError("Cannot find OPT in the buffered case")
+
+        combinations_by_time = []
+        for burst in self.bursts:
+            combinations_by_time.append(list(combinations(burst.packets, r=self.capacity)
+                                             if len(burst.packets) > self.capacity else [burst.packets]))
+
+        possible_assignments = [
+            list(chain(*chunked_assignment))
+            for chunked_assignment in product(*combinations_by_time)
+        ]
+
+        results = sorted([self.evaluate_assignment(assignment) for assignment in possible_assignments],
+                         key=lambda res: res.completed_weight, reverse=True)
+
+        return results[0]
