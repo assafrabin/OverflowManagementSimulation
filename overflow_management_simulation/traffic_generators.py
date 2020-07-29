@@ -6,26 +6,44 @@ from typing import List, Dict
 
 import numpy as np
 
+from overflow_management_simulation.size_functions import SizeFunc
 from overflow_management_simulation.superpacket import Superpacket, Packet
+from overflow_management_simulation.weight_functions import WeightFunc
 
 
 @dataclass
 class TrafficGenerator:
     lam: float
     k: int
+    n: int
+    weight_func: WeightFunc
+    size_func: SizeFunc
 
     @abstractmethod
-    def generate_superpackets(self):
+    def generate_superpackets(self) -> List[Superpacket]:
         pass
 
-    @staticmethod
-    def generate_superpacket(superpacket_id: int, arrival_times: List[int]):
-        packets = [Packet(i, arrival_time) for i, arrival_time in enumerate(arrival_times)]
-        sp = Superpacket(id_=superpacket_id, packets=packets)
+    def generate_superpacket(self, superpacket_id: int, arrival_times: List[int]) -> Superpacket:
+        packets = [Packet(index=i, arrival_time=arrival_time,
+                          size=self.size_func(superpacket_id=superpacket_id, index=i))
+                   for i, arrival_time in enumerate(arrival_times)]
+        superpacket_weight = self.weight_func(superpacket_id=superpacket_id)
+        weighted_priority = self.calc_weighted_priority(superpacket_weight)
+        sp = Superpacket(id_=superpacket_id, packets=packets, weight=superpacket_weight,
+                         weighted_priority=weighted_priority)
         for packet in packets:
             packet.superpacket = sp
 
         return sp
+
+    @staticmethod
+    def calc_weighted_priority(weight):
+        """
+        Calculates r(s)
+        """
+        h_s = random.random()
+        p_s = (1 - h_s ** float(weight))
+        return p_s
 
 
 @dataclass
@@ -73,5 +91,6 @@ class PoissonTrafficGenerator(TrafficGenerator):
 
     def generate_arrival_times(self):
         arrival_intervals = np.random.poisson(self.lam, size=self.k + 1)
+        arrival_intervals[arrival_intervals == 0] = 1
         arrival_times = [sum(arrival_intervals[0:i]) for i in range(1, self.k + 1)]
         return arrival_times

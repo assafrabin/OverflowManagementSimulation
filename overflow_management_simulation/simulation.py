@@ -23,11 +23,10 @@ class Burst:
 
 
 class Simulation:
-    def __init__(self, superpackets, beta, k, weighted, capacity, buffer_size):
+    def __init__(self, superpackets, beta, k, capacity, buffer_size):
         self.superpackets = superpackets
         self.k = k
         self.beta = beta
-        self.weighted = weighted
         self.capacity = capacity
         self.buffer_size = buffer_size
 
@@ -55,7 +54,7 @@ class Simulation:
     def average_burst_size(self):
         return sum(len(burst.packets) for burst in self.bursts) / float(len(self.bursts))
 
-    def run(self, router: Router):
+    def run(self, router: Router) -> SimulationResult:
         transmitted_packets: List[Packet] = [packet
                                              for burst in self.bursts
                                              for packet in router.route(burst.packets, self.capacity, self.buffer_size)]

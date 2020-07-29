@@ -41,16 +41,16 @@ class SimulationsResult:
         self.lam = lam
         self.results = results
 
-    def _average(self, attr):
-        return sum([getattr(result, attr) for result in self.results]) / float(len(self.results))
+    def _average(self, attr_getter):
+        return sum([attr_getter(result) for result in self.results]) / float(len(self.results))
 
     @cached_property
     def average_success_rate(self):
-        return self._average('success_rate')
+        return self._average(lambda x: x.success_rate)
 
     @cached_property
     def average_burst_size(self):
-        return self._average('average_burst_size')
+        return self._average(lambda x: x.simulation.average_burst_size)
 
     def print(self):
         print(f'{self.router_name} - {self.beta} - {self.average_success_rate:.2f}')

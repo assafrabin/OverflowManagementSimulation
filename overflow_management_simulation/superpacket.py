@@ -8,10 +8,11 @@ from cached_property import cached_property
 class Packet:
     index: int
     arrival_time: int
+    size: int
     superpacket = None
 
     def __repr__(self):
-        return f"Packet(sp={self.superpacket.id_}, time={self.arrival_time}"
+        return f"<Packet(sp={self.superpacket.id_}, time={self.arrival_time})>"
 
     def __hash__(self):
         return hash((self.arrival_time, self.superpacket))
@@ -21,7 +22,8 @@ class Packet:
 class Superpacket:
     id_: int
     packets: List[Packet]
-    weight: int = 1
+    weight: int
+    weighted_priority: float
 
     @cached_property
     def max_time(self):
