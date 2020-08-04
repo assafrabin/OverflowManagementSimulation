@@ -15,9 +15,7 @@ class Router(metaclass=ABCMeta):
         if not packets_to_route:
             return []
         random.shuffle(packets)
-        prioritized_packets = sorted(packets, key=self.give_priority, reverse=True)
-        if 0 in [p.superpacket.id_ for p in packets]:
-            a = 1
+        prioritized_packets = list(sorted(packets, key=self.give_priority, reverse=True))
 
         transmitted_packets = []
         for packet in prioritized_packets:
@@ -25,10 +23,10 @@ class Router(metaclass=ABCMeta):
             if transmitted_size + packet.size <= capacity:
                 transmitted_packets.append(packet)
 
-        prioritized_packets = [p for p in prioritized_packets if p not in transmitted_packets]
+        not_transmitted_packets = [p for p in prioritized_packets if p not in transmitted_packets]
 
         self.buffer.clear()
-        for packet in prioritized_packets:
+        for packet in not_transmitted_packets:
             buffered_size = sum(p.size for p in self.buffer)
             if buffered_size > buffer_size:
                 break
@@ -70,38 +68,41 @@ class PriorityRouter(Router):
         return packet.superpacket.weighted_priority if weighted else packet.superpacket.id_
 
     def __str__(self):
-        return f"{self.NAME} - weighted: {self.weighted}"
+        return f"{self.NAME}" + (f" - unweighted" if not self.weighted else "")
 
 
 @dataclass
 class PrioritySelfEliminationsRouter(PriorityRouter):
-    NAME = "Priority Self-Eliminations"
+    NAME = "PSE"
+    k: int
     beta: float
-    alpha: float
+    alpha: float = 0
 
-    def is_eliminated(self, packet):
-        return random.random() > (1 - self.beta - self.alpha)
+    def __post_init__(self):
+        super(PrioritySelfEliminationsRouter, self).__post_init__()
+        self.superpacket_to_self_eliminations = {}
 
     def give_priority(self, packet):
         return -1 if self.is_eliminated(packet) else self.priority(packet, self.weighted)
 
+    def is_eliminated(self, packet):
+        self_eliminations_indices = self.superpacket_to_self_eliminations.get(packet.superpacket.id_)
+        if self_eliminations_indices is None:
+            self.superpacket_to_self_eliminations[packet.superpacket.id_] = self.choose_indices(self.k,
+                                                                                                self.beta * self.k)
+        return packet.index in self.superpacket_to_self_eliminations[packet.superpacket.id_]
+
     def __str__(self):
-        return f'{super(PrioritySelfEliminationsRouter, self).__str__()} (alpha={self.alpha})'
+        return f'{super().__str__()}' + \
+               (f'(alpha={self.alpha})' if self.alpha else '')
 
 
 @dataclass
-class PrioritySelfEliminationsInAdvanceRouter(PrioritySelfEliminationsRouter):
-    NAME = "Priority Self-Eliminations in Advance"
-    n: int
-    k: int
-
-    def __post_init__(self):
-        super(PrioritySelfEliminationsInAdvanceRouter, self).__post_init__()
-        self.superpacket_to_self_eliminations = {i: self.choose_indices(self.k, self.beta * self.k) for i in
-                                                 range(self.n)}
+class PriorityRandomSelfEliminationsRouter(PrioritySelfEliminationsRouter):
+    NAME = "Priority Random Self-Eliminations"
 
     def is_eliminated(self, packet):
-        return packet.index in self.superpacket_to_self_eliminations[packet.superpacket.id_]
+        return random.random() > (1 - self.beta - self.alpha)
 
 
 @dataclass

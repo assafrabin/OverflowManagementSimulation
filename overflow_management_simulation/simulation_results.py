@@ -60,5 +60,6 @@ class SimulationsResult:
             "router": self.router_name,
             "beta": self.beta,
             "success_rate": self.average_success_rate,
-            "average_burst_size": self.average_burst_size
+            "average_burst_size": self.average_burst_size,
+            "lam": self.lam
         }

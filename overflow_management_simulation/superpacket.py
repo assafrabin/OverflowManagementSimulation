@@ -11,6 +11,9 @@ class Packet:
     size: int
     superpacket = None
 
+    def __eq__(self, other):
+        return self.superpacket == other.superpacket and self.index == other.index
+
     def __repr__(self):
         return f"<Packet(sp={self.superpacket.id_}, time={self.arrival_time})>"
 

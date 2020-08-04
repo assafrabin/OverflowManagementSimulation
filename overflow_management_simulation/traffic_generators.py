@@ -15,7 +15,6 @@ from overflow_management_simulation.weight_functions import WeightFunc
 class TrafficGenerator:
     lam: float
     k: int
-    n: int
     weight_func: WeightFunc
     size_func: SizeFunc
 
@@ -49,7 +48,7 @@ class TrafficGenerator:
 @dataclass
 class MarkovTrafficGenerator(TrafficGenerator):
     number_of_markovs: int
-    number_of_intervals: int
+    max_time: int
 
     def generate_superpackets(self) -> List[Superpacket]:
         bursts = self.generate_bursts()
@@ -70,14 +69,17 @@ class MarkovTrafficGenerator(TrafficGenerator):
 
     def generate_bursts(self) -> Dict[int, int]:
         bursts = defaultdict(lambda: 0)
+        lambda_on = 0.1
+        lambda_off = 0.1 / self.lam
         for _ in range(self.number_of_markovs):
-            on_off_intervals = np.random.poisson(self.lam, size=self.number_of_intervals)
-            t = 0
-            for i, interval in enumerate(on_off_intervals):
-                for _ in range(interval):
-                    if i % 2 == 0:
-                        bursts[t] = bursts[t] + 1
-                    t += 1
+            current_time = 0
+            while current_time <= self.max_time:
+                on_times = np.random.poisson(lambda_on)
+                for t in range(current_time, current_time + on_times):
+                    bursts[t] += 1
+                current_time += on_times
+                off_times = np.random.poisson(lambda_off)
+                current_time += off_times
 
         return bursts
 
