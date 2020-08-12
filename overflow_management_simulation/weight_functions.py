@@ -20,9 +20,9 @@ class RandomWeights(WeightFunc):
 
 
 class SomeHeavyWeights(WeightFunc):
-    def __init__(self, heavy_count, heavy_weight):
-        self.heavy_count = heavy_count
+    def __init__(self, heavy_fraction, heavy_weight):
+        self.heavy_fraction = heavy_fraction
         self.heavy_weight = heavy_weight
 
     def __call__(self, *args, **kwargs):
-        return self.heavy_weight if kwargs['superpacket_id'] < self.heavy_count else 1
+        return self.heavy_weight if kwargs['superpacket_id'] < (self.heavy_fraction * kwargs['n'])  else 1

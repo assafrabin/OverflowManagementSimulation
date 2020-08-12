@@ -6,7 +6,6 @@ from typing import List, Dict
 
 import numpy as np
 
-from overflow_management_simulation.size_functions import SizeFunc
 from overflow_management_simulation.superpacket import Superpacket, Packet
 from overflow_management_simulation.weight_functions import WeightFunc
 
@@ -16,17 +15,15 @@ class TrafficGenerator:
     lam: float
     k: int
     weight_func: WeightFunc
-    size_func: SizeFunc
 
     @abstractmethod
     def generate_superpackets(self) -> List[Superpacket]:
         pass
 
-    def generate_superpacket(self, superpacket_id: int, arrival_times: List[int]) -> Superpacket:
-        packets = [Packet(index=i, arrival_time=arrival_time,
-                          size=self.size_func(superpacket_id=superpacket_id, index=i))
+    def generate_superpacket(self, n: int, superpacket_id: int, arrival_times: List[int]) -> Superpacket:
+        packets = [Packet(index=i, arrival_time=arrival_time)
                    for i, arrival_time in enumerate(arrival_times)]
-        superpacket_weight = self.weight_func(superpacket_id=superpacket_id)
+        superpacket_weight = self.weight_func(superpacket_id=superpacket_id, n=n)
         weighted_priority = self.calc_weighted_priority(superpacket_weight)
         sp = Superpacket(id_=superpacket_id, packets=packets, weight=superpacket_weight,
                          weighted_priority=weighted_priority)
@@ -65,17 +62,18 @@ class MarkovTrafficGenerator(TrafficGenerator):
                 bursts[t] -= 1
             sp_to_arrival_times[sp_id] = arrival_times
 
-        return [self.generate_superpacket(sp_id, arrival_times) for sp_id, arrival_times in sp_to_arrival_times.items()]
+        return [self.generate_superpacket(n, sp_id, arrival_times) for sp_id, arrival_times in
+                sp_to_arrival_times.items()]
 
     def generate_bursts(self) -> Dict[int, int]:
         bursts = defaultdict(lambda: 0)
-        lambda_on = 0.1
-        lambda_off = 0.1 / self.lam
+        lambda_off = 0.1
+        lambda_on = 0.1 / self.lam
         for _ in range(self.number_of_markovs):
-            current_time = 0
+            current_time = 1
             while current_time <= self.max_time:
                 on_times = np.random.poisson(lambda_on)
-                for t in range(current_time, current_time + on_times):
+                for t in range(current_time, min(current_time + on_times, self.max_time + 1)):
                     bursts[t] += 1
                 current_time += on_times
                 off_times = np.random.poisson(lambda_off)

@@ -25,24 +25,33 @@ class SimulationResult:
     def completed_weight(self):
         return sum(sp.weight for sp in self.completed_superpackets)
 
+    @cached_property
+    def completed_upper_bound(self):
+        return min((self.simulation.T * self.simulation.capacity) / ((1 - self.simulation.beta) * self.simulation.k),
+                   len(self.superpackets))
+
     @property
     def success_rate(self):
-        return self.completed_weight / self.total_weight
+        if self.simulation.weighted:
+            return self.completed_weight / self.total_weight
+        else:
+            return len(self.completed_superpackets) / self.completed_upper_bound
 
 
 class SimulationsResult:
     COLUMNS = []
 
-    def __init__(self, router_name, n, k, beta, lam, results):
+    def __init__(self, router_name, n, k, beta, capacity, buffer_size, results):
         self.router_name = router_name
         self.n = n
         self.k = k
         self.beta = beta
-        self.lam = lam
+        self.capacity = capacity
+        self.buffer_size = buffer_size
         self.results = results
 
     def _average(self, attr_getter):
-        return sum([attr_getter(result) for result in self.results]) / float(len(self.results))
+        return sum([attr_getter(result) for result in self.results]) / len(self.results)
 
     @cached_property
     def average_success_rate(self):
@@ -61,5 +70,7 @@ class SimulationsResult:
             "beta": self.beta,
             "success_rate": self.average_success_rate,
             "average_burst_size": self.average_burst_size,
-            "lam": self.lam
+            "k": self.k,
+            "capacity": self.capacity,
+            "buffer_size": self.buffer_size,
         }

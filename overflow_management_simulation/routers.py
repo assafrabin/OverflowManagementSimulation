@@ -1,5 +1,6 @@
 import random
 from abc import ABCMeta, abstractmethod
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import ClassVar
 
@@ -10,28 +11,27 @@ class Router(metaclass=ABCMeta):
     def __post_init__(self):
         self.buffer = []
 
-    def route(self, packets, capacity, buffer_size):
-        packets_to_route = packets + self.buffer
+    def route(self, burst, capacity, buffer_size):
+        packets_to_route = burst.packets + self.buffer
         if not packets_to_route:
             return []
-        random.shuffle(packets)
-        prioritized_packets = list(sorted(packets, key=self.give_priority, reverse=True))
+        random.shuffle(packets_to_route)
+        prioritized_packets = list(sorted(packets_to_route, key=self.give_priority, reverse=True))
 
         transmitted_packets = []
         for packet in prioritized_packets:
-            transmitted_size = sum(p.size for p in transmitted_packets)
-            if transmitted_size + packet.size <= capacity:
+            if len(transmitted_packets) < capacity:
                 transmitted_packets.append(packet)
+                packet.transmission_time = burst.time
+                if packet.transmission_time < packet.arrival_time:
+                    pass
 
         not_transmitted_packets = [p for p in prioritized_packets if p not in transmitted_packets]
 
         self.buffer.clear()
         for packet in not_transmitted_packets:
-            buffered_size = sum(p.size for p in self.buffer)
-            if buffered_size > buffer_size:
-                break
-
-            self.buffer.append(packet)
+            if len(self.buffer) < buffer_size:
+                self.buffer.append(packet)
 
         return transmitted_packets
 
@@ -71,12 +71,45 @@ class PriorityRouter(Router):
         return f"{self.NAME}" + (f" - unweighted" if not self.weighted else "")
 
 
+class PrioritySubsetsRouter(PriorityRouter):
+    NAME = 'Priority Subsets'
+
+    def route(self, burst, capacity, buffer_size):
+        packets_to_route = burst.packets + self.buffer
+        if not packets_to_route:
+            return []
+        random.shuffle(packets_to_route)
+        subsets = defaultdict(list)
+        for packet in packets_to_route:
+            subset = random.choice(range(capacity))
+            subsets[subset].append(packet)
+
+        transmitted_packets = []
+        for subset_packets in subsets.values():
+            prioritized_subset_packets = list(sorted(subset_packets, key=self.give_priority, reverse=True))
+            transmitted_packets.append(prioritized_subset_packets[0])
+
+        not_transmitted_packets = [p for p in packets_to_route if p not in transmitted_packets]
+        prioritized_packets = list(sorted(not_transmitted_packets, key=self.give_priority, reverse=True))
+
+        self.buffer.clear()
+        for packet in prioritized_packets:
+            if len(self.buffer) < buffer_size:
+                self.buffer.append(packet)
+
+        return transmitted_packets
+
+
 @dataclass
 class PrioritySelfEliminationsRouter(PriorityRouter):
-    NAME = "PSE"
+    NAME = "PSE (No subsets)"
     k: int
     beta: float
     alpha: float = 0
+
+    @property
+    def eff_beta(self):
+        return min(max(self.beta - self.alpha, 0), 1)
 
     def __post_init__(self):
         super(PrioritySelfEliminationsRouter, self).__post_init__()
@@ -88,13 +121,13 @@ class PrioritySelfEliminationsRouter(PriorityRouter):
     def is_eliminated(self, packet):
         self_eliminations_indices = self.superpacket_to_self_eliminations.get(packet.superpacket.id_)
         if self_eliminations_indices is None:
-            self.superpacket_to_self_eliminations[packet.superpacket.id_] = self.choose_indices(self.k,
-                                                                                                self.beta * self.k)
+            self.superpacket_to_self_eliminations[packet.superpacket.id_] = \
+                self.choose_indices(self.k, self.eff_beta * self.k)
         return packet.index in self.superpacket_to_self_eliminations[packet.superpacket.id_]
 
     def __str__(self):
         return f'{super().__str__()}' + \
-               (f'(alpha={self.alpha})' if self.alpha else '')
+               (f'(\u03B1={self.alpha})' if self.alpha else '')
 
 
 @dataclass
@@ -107,7 +140,36 @@ class PriorityRandomSelfEliminationsRouter(PrioritySelfEliminationsRouter):
 
 @dataclass
 class GreedyWeightedRouter(Router):
-    NAME = "Greedy Weighted"
+    NAME = "Greedy"
 
     def give_priority(self, packet):
         return packet.superpacket.weight
+
+
+class PSESubsetsRouter(PrioritySelfEliminationsRouter):
+    NAME = 'PSE'
+
+    def route(self, burst, capacity, buffer_size):
+        packets_to_route = burst.packets + self.buffer
+        if not packets_to_route:
+            return []
+        random.shuffle(packets_to_route)
+        subsets = defaultdict(list)
+        for packet in packets_to_route:
+            subset = random.choice(range(capacity))
+            subsets[subset].append(packet)
+
+        transmitted_packets = []
+        for subset_packets in subsets.values():
+            prioritized_subset_packets = list(sorted(subset_packets, key=self.give_priority, reverse=True))
+            transmitted_packets.append(prioritized_subset_packets[0])
+
+        not_transmitted_packets = [p for p in packets_to_route if p not in transmitted_packets]
+        prioritized_packets = list(sorted(not_transmitted_packets, key=self.give_priority, reverse=True))
+
+        self.buffer.clear()
+        for packet in prioritized_packets:
+            if len(self.buffer) < buffer_size:
+                self.buffer.append(packet)
+
+        return transmitted_packets

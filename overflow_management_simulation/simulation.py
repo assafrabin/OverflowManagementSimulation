@@ -23,12 +23,16 @@ class Burst:
 
 
 class Simulation:
-    def __init__(self, superpackets, beta, k, capacity, buffer_size):
+    def __init__(self, superpackets: List[Superpacket], beta: float, k: int, capacity: int, buffer_size: int):
         self.superpackets = superpackets
         self.k = k
         self.beta = beta
         self.capacity = capacity
         self.buffer_size = buffer_size
+
+    @cached_property
+    def weighted(self):
+        return len({sp.weight for sp in self.superpackets}) > 1
 
     @cached_property
     def T(self):
@@ -44,7 +48,7 @@ class Simulation:
     @cached_property
     def bursts(self) -> List[Burst]:
         res = []
-        for t in range(self.T):
+        for t in range(self.T + 1):
             participating_packets = [p for sp in self.superpackets for p in sp.packets if p.arrival_time == t]
             if participating_packets:
                 res.append(Burst(time=t, packets=participating_packets))
@@ -55,9 +59,10 @@ class Simulation:
         return sum(len(burst.packets) for burst in self.bursts) / float(len(self.bursts))
 
     def run(self, router: Router) -> SimulationResult:
+        router.buffer.clear()
         transmitted_packets: List[Packet] = [packet
                                              for burst in self.bursts
-                                             for packet in router.route(burst.packets, self.capacity, self.buffer_size)]
+                                             for packet in router.route(burst, self.capacity, self.buffer_size)]
 
         return self.evaluate_assignment(transmitted_packets)
 

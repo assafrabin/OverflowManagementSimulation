@@ -8,14 +8,14 @@ from cached_property import cached_property
 class Packet:
     index: int
     arrival_time: int
-    size: int
+    transmission_time = None
     superpacket = None
 
     def __eq__(self, other):
         return self.superpacket == other.superpacket and self.index == other.index
 
     def __repr__(self):
-        return f"<Packet(sp={self.superpacket.id_}, time={self.arrival_time})>"
+        return f"<Packet(sp={self.superpacket.id_}, time={self.arrival_time}), transmitted_at={self.transmission_time}>"
 
     def __hash__(self):
         return hash((self.arrival_time, self.superpacket))
@@ -34,3 +34,6 @@ class Superpacket:
 
     def __hash__(self):
         return hash(self.id_)
+
+    def __eq__(self, other):
+        return hash(self) == hash(other)
