@@ -30,6 +30,10 @@ class Simulation:
         self.capacity = capacity
         self.buffer_size = buffer_size
 
+    def clone(self):
+        cloned_superpackets = [sp.clone() for sp in self.superpackets]
+        return Simulation(cloned_superpackets, self.beta, self.k, self.capacity, self.buffer_size)
+
     @cached_property
     def weighted(self):
         return len({sp.weight for sp in self.superpackets}) > 1
@@ -40,7 +44,7 @@ class Simulation:
 
     @cached_property
     def completed_threshold(self):
-        return (1 - self.beta) * self.k
+        return round((1 - self.beta) * self.k)
 
     def is_superpacket_completed(self, packets: List[Packet]):
         return len(packets) >= self.completed_threshold

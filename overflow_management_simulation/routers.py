@@ -22,14 +22,13 @@ class Router(metaclass=ABCMeta):
         for packet in prioritized_packets:
             if len(transmitted_packets) < capacity:
                 transmitted_packets.append(packet)
+                prioritized_packets.remove(packet)
                 packet.transmission_time = burst.time
                 if packet.transmission_time < packet.arrival_time:
                     pass
 
-        not_transmitted_packets = [p for p in prioritized_packets if p not in transmitted_packets]
-
         self.buffer.clear()
-        for packet in not_transmitted_packets:
+        for packet in prioritized_packets:
             if len(self.buffer) < buffer_size:
                 self.buffer.append(packet)
 
@@ -102,7 +101,7 @@ class PrioritySubsetsRouter(PriorityRouter):
 
 @dataclass
 class PrioritySelfEliminationsRouter(PriorityRouter):
-    NAME = "PSE (No subsets)"
+    NAME = "PSE"
     k: int
     beta: float
     alpha: float = 0
@@ -147,7 +146,7 @@ class GreedyWeightedRouter(Router):
 
 
 class PSESubsetsRouter(PrioritySelfEliminationsRouter):
-    NAME = 'PSE'
+    NAME = 'PSE-B'
 
     def route(self, burst, capacity, buffer_size):
         packets_to_route = burst.packets + self.buffer

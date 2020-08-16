@@ -39,16 +39,15 @@ class SimulationResult:
 
 
 class SimulationsResult:
-    COLUMNS = []
-
-    def __init__(self, router_name, n, k, beta, capacity, buffer_size, results):
+    def __init__(self, router_name, k, beta, lam, capacity, buffer_size, results):
         self.router_name = router_name
-        self.n = n
         self.k = k
         self.beta = beta
+        self.lam = lam
         self.capacity = capacity
         self.buffer_size = buffer_size
         self.results = results
+
 
     def _average(self, attr_getter):
         return sum([attr_getter(result) for result in self.results]) / len(self.results)
@@ -56,6 +55,14 @@ class SimulationsResult:
     @cached_property
     def average_success_rate(self):
         return self._average(lambda x: x.success_rate)
+
+    @cached_property
+    def average_n(self):
+        return self._average(lambda x: len(x.superpackets))
+
+    @cached_property
+    def average_completed_superpackets(self):
+        return self._average(lambda x: len(x.completed_superpackets))
 
     @cached_property
     def average_burst_size(self):
@@ -69,7 +76,10 @@ class SimulationsResult:
             "router": self.router_name,
             "beta": self.beta,
             "success_rate": self.average_success_rate,
+            "completed_superpackets": self.average_completed_superpackets,
             "average_burst_size": self.average_burst_size,
+            "average_effective_load": self.average_burst_size * (1 - self.beta),
+            "lam": self.lam,
             "k": self.k,
             "capacity": self.capacity,
             "buffer_size": self.buffer_size,

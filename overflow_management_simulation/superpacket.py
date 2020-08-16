@@ -8,8 +8,8 @@ from cached_property import cached_property
 class Packet:
     index: int
     arrival_time: int
-    transmission_time = None
     superpacket = None
+    transmission_time = None
 
     def __eq__(self, other):
         return self.superpacket == other.superpacket and self.index == other.index
@@ -19,6 +19,11 @@ class Packet:
 
     def __hash__(self):
         return hash((self.arrival_time, self.superpacket))
+
+    def clone(self):
+        p = Packet(self.index, self.arrival_time)
+        p.superpacket = self.superpacket
+        return p
 
 
 @dataclass
@@ -33,7 +38,15 @@ class Superpacket:
         return max(p.arrival_time for p in self.packets)
 
     def __hash__(self):
-        return hash(self.id_)
+        return self.id_
 
     def __eq__(self, other):
         return hash(self) == hash(other)
+
+    def clone(self):
+        cloned_packets = [p.clone() for p in self.packets]
+        return Superpacket(self.id_, cloned_packets, self.weight, self.weighted_priority)
+
+    @property
+    def transmitted_packets(self):
+        return [p for p in self.packets if p.transmission_time is not None]

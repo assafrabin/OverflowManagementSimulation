@@ -14,6 +14,7 @@ from overflow_management_simulation.weight_functions import WeightFunc
 class TrafficGenerator:
     lam: float
     k: int
+    c: int
     weight_func: WeightFunc
 
     @abstractmethod
@@ -51,19 +52,18 @@ class MarkovTrafficGenerator(TrafficGenerator):
         bursts = self.generate_bursts()
         total_packets = sum(bursts.values())
         n = int(total_packets / self.k)
-        sp_to_arrival_times = defaultdict(list)
+        sp_to_arrival_times = {sp_id: [] for sp_id in range(n)}
 
-        for sp_id in range(n):
-            non_empty_bursts = {t: number_of_packets for t, number_of_packets in bursts.items() if number_of_packets}
-            if len(non_empty_bursts) < self.k:
-                break
-            arrival_times = random.sample(non_empty_bursts.keys(), k=self.k)
-            for t in arrival_times:
-                bursts[t] -= 1
-            sp_to_arrival_times[sp_id] = arrival_times
+        for t, packets_in_burst in bursts.items():
+            for _ in range(packets_in_burst):
+                potential_superpackets = [sp_id for sp_id, arrival_Times in sp_to_arrival_times.items() if
+                                          len(arrival_Times) < self.k and sp_to_arrival_times[sp_id].count(t) < self.c]
+                if not potential_superpackets:
+                    break
+                sp_to_arrival_times[random.choice(potential_superpackets)].append(t)
 
         return [self.generate_superpacket(n, sp_id, arrival_times) for sp_id, arrival_times in
-                sp_to_arrival_times.items()]
+                sp_to_arrival_times.items() if len(arrival_times) == self.k]
 
     def generate_bursts(self) -> Dict[int, int]:
         bursts = defaultdict(lambda: 0)
@@ -87,7 +87,7 @@ class PoissonTrafficGenerator(TrafficGenerator):
     n: int
 
     def generate_superpackets(self):
-        return [self.generate_superpacket(sp_id, self.generate_arrival_times()) for sp_id in range(self.n)]
+        return [self.generate_superpacket(self.n, sp_id, self.generate_arrival_times()) for sp_id in range(self.n)]
 
     def generate_arrival_times(self):
         arrival_intervals = np.random.poisson(self.lam, size=self.k + 1)

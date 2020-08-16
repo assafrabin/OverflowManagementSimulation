@@ -12,6 +12,7 @@ numpy = "*"
 seaborn = "*"
 pandas = "*"
 cached-property = "*"
+tqdm = "*"
 
 [requires]
 python_version = "3.8"
